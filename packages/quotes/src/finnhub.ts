@@ -9,6 +9,7 @@ type Registration = {
 }
 
 const WINDOW_MS = 60_000
+export const FINNHUB_MIN_INTERVAL_MS = 1000
 export const FINNHUB_POLL_MS = 5 * 60 * 1000
 
 export function createFinnhubProvider(options: {
@@ -18,6 +19,7 @@ export function createFinnhubProvider(options: {
   marketOpen?: (nowMs: number) => boolean
   maxSymbols?: number
   restPerMinute?: number
+  minIntervalMs?: number
   pollMs?: number
 }): QuoteProvider {
   const fetchImpl = options.fetch ?? fetch
@@ -25,6 +27,7 @@ export function createFinnhubProvider(options: {
   const marketOpen = options.marketOpen ?? ((nowMs: number) => isUsEquitySessionOpen(new Date(nowMs)))
   const maxSymbols = options.maxSymbols ?? 50
   const restPerMinute = options.restPerMinute ?? 60
+  const minIntervalMs = options.minIntervalMs ?? FINNHUB_MIN_INTERVAL_MS
   const pollMs = options.pollMs ?? FINNHUB_POLL_MS
   const token = options.token
 
@@ -37,6 +40,8 @@ export function createFinnhubProvider(options: {
   let failed = false
   let rateWaiters = 0
   const stamps: number[] = []
+  let nextStart = 0
+  const snapshots = new Map<Symbol, { at: number; result: Promise<Snapshot> }>()
 
   function currentStatus(): ProviderStatus {
     if (invalid) return { kind: "invalid-key", message: "Finnhub rejected the API key." }
@@ -145,7 +150,12 @@ export function createFinnhubProvider(options: {
         stamps.push(now)
         run().then(resolve, reject)
       }
-      attempt()
+      // Calls start at least minIntervalMs apart. A poll and a snapshot share the one line.
+      const now = clock.now()
+      const startAt = Math.max(now, nextStart)
+      nextStart = startAt + minIntervalMs
+      if (startAt <= now) attempt()
+      else clock.setTimeout(attempt, startAt - now)
     })
   }
 
@@ -159,6 +169,22 @@ export function createFinnhubProvider(options: {
     if (response.status === 429) throw new ProviderRequestError("rate-limited", "Finnhub rate limit.")
     if (!response.ok) throw new ProviderRequestError("network", `Finnhub HTTP ${response.status}`)
     return response.json() as Promise<unknown>
+  }
+
+  async function fetchSnapshot(symbol: Symbol): Promise<Snapshot> {
+    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
+    const profileUrl = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
+    const [quoteResponse, profileResponse] = await Promise.all([
+      runLimited(() => fetchImpl(quoteUrl)),
+      runLimited(() => fetchImpl(profileUrl)),
+    ])
+    const quote = (await readJson(quoteResponse)) as { c?: unknown; pc?: unknown }
+    const profile = (await readJson(profileResponse)) as { name?: unknown }
+    const price = typeof quote.c === "number" && quote.c > 0 ? quote.c : null
+    const previousClose = typeof quote.pc === "number" && quote.pc > 0 ? quote.pc : null
+    const name = typeof profile.name === "string" && profile.name.length > 0 ? profile.name : null
+    if (price == null && name == null) return { symbol, name: null, previousClose: null, price: null }
+    return { symbol, name: name ?? symbol, previousClose, price }
   }
 
   return {
@@ -175,20 +201,16 @@ export function createFinnhubProvider(options: {
         emitStatus()
       }
     },
-    async getSnapshot(symbol: Symbol): Promise<Snapshot> {
-      const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
-      const profileUrl = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
-      const [quoteResponse, profileResponse] = await Promise.all([
-        runLimited(() => fetchImpl(quoteUrl)),
-        runLimited(() => fetchImpl(profileUrl)),
-      ])
-      const quote = (await readJson(quoteResponse)) as { c?: unknown; pc?: unknown }
-      const profile = (await readJson(profileResponse)) as { name?: unknown }
-      const price = typeof quote.c === "number" && quote.c > 0 ? quote.c : null
-      const previousClose = typeof quote.pc === "number" && quote.pc > 0 ? quote.pc : null
-      const name = typeof profile.name === "string" && profile.name.length > 0 ? profile.name : null
-      if (price == null && name == null) return { symbol, name: null, previousClose: null, price: null }
-      return { symbol, name: name ?? symbol, previousClose, price }
+    getSnapshot(symbol: Symbol): Promise<Snapshot> {
+      // A ticker edit asks for every row again. Rows already loaded this poll period are reused.
+      const cached = snapshots.get(symbol)
+      if (cached && clock.now() - cached.at < pollMs) return cached.result
+      const result = fetchSnapshot(symbol)
+      snapshots.set(symbol, { at: clock.now(), result })
+      result.catch(() => {
+        if (snapshots.get(symbol)?.result === result) snapshots.delete(symbol)
+      })
+      return result
     },
     onStatus(listener) {
       statusListeners.add(listener)

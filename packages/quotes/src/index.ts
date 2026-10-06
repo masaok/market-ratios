@@ -1,5 +1,5 @@
 export { realClock, type Clock } from "./clock"
-export { FINNHUB_POLL_MS, createFinnhubProvider, probeFinnhubKey } from "./finnhub"
+export { FINNHUB_MIN_INTERVAL_MS, FINNHUB_POLL_MS, createFinnhubProvider, probeFinnhubKey } from "./finnhub"
 export { isUsEquitySessionOpen } from "./market-hours"
 export { DEFAULT_TICKERS, SIMULATED_SEEDS } from "./seeds"
 export { createSimulatedProvider } from "./simulated"

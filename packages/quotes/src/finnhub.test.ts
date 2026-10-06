@@ -70,6 +70,7 @@ describe("Finnhub provider", () => {
     const quotes: number[] = []
     const provider = createFinnhubProvider({
       token: "test-key",
+      minIntervalMs: 0,
       marketOpen: () => true,
       fetch: async (url) => {
         if (String(url).includes("NOPE")) return json({ c: 0, pc: 0 })
@@ -89,6 +90,7 @@ describe("Finnhub provider", () => {
     const provider = createFinnhubProvider({
       token: "test-key",
       marketOpen: () => true,
+      minIntervalMs: 0,
       maxSymbols: 50,
       fetch: async (url) => {
         const symbol = new URL(String(url)).searchParams.get("symbol")
@@ -112,6 +114,7 @@ describe("Finnhub provider", () => {
     const provider = createFinnhubProvider({
       token: "test-key",
       clock,
+      minIntervalMs: 0,
       restPerMinute: 2,
       marketOpen: () => true,
       fetch: async (url) => {
@@ -138,9 +141,70 @@ describe("Finnhub provider", () => {
     expect(calls).toBe(4)
   })
 
+  it("starts calls a second apart and does not call that rate limited", async () => {
+    const clock = manualClock()
+    const statuses: ProviderStatus[] = []
+    const requested: string[] = []
+    const provider = createFinnhubProvider({
+      token: "test-key",
+      clock,
+      marketOpen: () => true,
+      fetch: async (url) => {
+        requested.push(new URL(String(url)).searchParams.get("symbol") ?? "")
+        return json({ c: 1 })
+      },
+    })
+    const symbols = ["AAPL", "MSFT", "KO"].flatMap((raw) => parseSymbol(raw) ?? [])
+    provider.onStatus((status) => statuses.push(status))
+    provider.subscribe(symbols, () => {})
+    await flush()
+    expect(requested).toEqual(["AAPL"])
+    clock.advance(999)
+    await flush()
+    expect(requested).toEqual(["AAPL"])
+    clock.advance(1)
+    await flush()
+    expect(requested).toEqual(["AAPL", "MSFT"])
+    clock.advance(1000)
+    await flush()
+    expect(requested).toEqual(["AAPL", "MSFT", "KO"])
+    expect(statuses.some((status) => status.kind === "rate-limited")).toBe(false)
+  })
+
+  it("reuses a loaded snapshot until the next poll period, and retries a failed one", async () => {
+    const clock = manualClock()
+    let calls = 0
+    let fail = true
+    const provider = createFinnhubProvider({
+      token: "test-key",
+      clock,
+      minIntervalMs: 0,
+      marketOpen: () => true,
+      fetch: async (url) => {
+        calls += 1
+        if (fail) return json({}, 500)
+        if (String(url).includes("profile2")) return json({ name: "Apple Inc." })
+        return json({ c: 10, pc: 8 })
+      },
+    })
+    const aapl = parseSymbol("AAPL")
+    if (!aapl) throw new Error("AAPL")
+    await expect(provider.getSnapshot(aapl)).rejects.toBeInstanceOf(ProviderRequestError)
+    expect(calls).toBe(2)
+    fail = false
+    expect(await provider.getSnapshot(aapl)).toMatchObject({ name: "Apple Inc.", price: 10 })
+    expect(calls).toBe(4)
+    await provider.getSnapshot(aapl)
+    expect(calls).toBe(4)
+    clock.advance(FINNHUB_POLL_MS)
+    await provider.getSnapshot(aapl)
+    expect(calls).toBe(6)
+  })
+
   it("rejects an invalid key and keeps an unknown ticker empty", async () => {
     const statuses: ProviderStatus[] = []
     const provider = createFinnhubProvider({
+      minIntervalMs: 0,
       token: "bad",
       marketOpen: () => true,
       fetch: async (url) => {
@@ -156,6 +220,7 @@ describe("Finnhub provider", () => {
     await expect(provider.getSnapshot(aapl)).rejects.toBeInstanceOf(ProviderRequestError)
     expect(statuses.at(-1)).toEqual({ kind: "invalid-key", message: "Finnhub rejected the API key." })
     const unknown = createFinnhubProvider({
+      minIntervalMs: 0,
       token: "ok",
       marketOpen: () => false,
       fetch: async (url) => json(String(url).includes("profile2") ? {} : { c: 0, pc: 0 }),
