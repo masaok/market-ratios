@@ -25,7 +25,7 @@ import {
   type GridState,
 } from "./model"
 import { QuoteBook, type NameSlice, type PriceSlice } from "./quote-book"
-import { loadSheet, saveSheet } from "./storage"
+import { loadApiKey, loadSheet, saveApiKey, saveSheet } from "./storage"
 
 // One book for the page, so a tick notifies the price cell and not the grid.
 const book = new QuoteBook()
@@ -40,7 +40,7 @@ function initialMonitorState(tickers: readonly string[] | undefined): GridState 
 
 function initialApiKey(): string | null {
   if (typeof window === "undefined") return null
-  return loadSheet()?.apiKey ?? null
+  return loadApiKey()
 }
 
 // In COL order.
@@ -126,18 +126,24 @@ export function StockMonitor({
     setState((current) => reduceGrid(current, action))
   }
 
+  function changeApiKey(next: string | null) {
+    setApiKey(next)
+    // A host that keeps the tickers skips the save above, so the key is saved here.
+    if (onTickersChange) saveApiKey(next)
+  }
+
   async function submitKey(event: FormEvent) {
     event.preventDefault()
     const token = keyDraft.trim()
     if (!token) {
-      setApiKey(null)
+      changeApiKey(null)
       setKeyError(null)
       setKeyOpen(false)
       return
     }
     const result = await probeFinnhubKey(token)
     if (result === "ok") {
-      setApiKey(token)
+      changeApiKey(token)
       setKeyError(null)
       setKeyOpen(false)
       return
@@ -211,7 +217,7 @@ export function StockMonitor({
               type="button"
               className="quiet"
               onClick={() => {
-                setApiKey(null)
+                changeApiKey(null)
                 setKeyError(null)
                 setKeyOpen(false)
               }}

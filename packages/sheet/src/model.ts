@@ -148,7 +148,7 @@ export function reduceGrid(state: GridState, action: GridAction): GridState {
       const committed = commitEditing(state)
       const tickers = withTrailingBlank(committed.tickers)
       const addr = { c: COL.ticker, r: tickers.length - 1 }
-      return { tickers, anchor: addr, focus: addr, editing: { addr, draft: "" } }
+      return { tickers, anchor: addr, focus: addr, editing: { addr, draft: "" }, selected: committed.selected }
     }
     case "select": {
       const committed = commitEditing(state)

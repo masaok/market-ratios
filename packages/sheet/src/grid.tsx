@@ -110,7 +110,7 @@ export function Grid({
         const target = event.target as HTMLElement
         if (target.closest("input, textarea, button, a")) return
         event.preventDefault()
-        ref.current?.focus()
+        ref.current?.focus({ preventScroll: true })
       }}
     >
       <table>

@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
-import { render, screen } from "@testing-library/react"
+import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useState } from "react"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { Grid } from "./grid"
 import { initialGrid, reduceGrid, symbolForRow, type Addr, type GridState } from "./model"
 
@@ -21,6 +21,8 @@ function Harness() {
   )
 }
 
+afterEach(cleanup)
+
 describe("grid keyboard", () => {
   it("moves the selection with the arrow keys and edits a ticker with F2", async () => {
     const user = userEvent.setup()
@@ -35,5 +37,17 @@ describe("grid keyboard", () => {
     await user.keyboard("ko{Enter}")
     expect(screen.getAllByText("KO").length).toBeGreaterThan(0)
     expect(screen.getByTestId("focus").textContent).toBe("1,2")
+  })
+})
+
+describe("grid pointer", () => {
+  it("takes focus on a click without scrolling the page to the grid", async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+    const grid = screen.getByTestId("grid")
+    const focus = vi.spyOn(grid, "focus")
+    await user.click(screen.getAllByRole("gridcell")[0])
+    expect(document.activeElement).toBe(grid)
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
   })
 })

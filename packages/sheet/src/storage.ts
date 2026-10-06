@@ -27,3 +27,12 @@ export function saveSheet(saved: SavedSheet) {
     // Private mode can reject storage. The sheet still runs for this visit.
   }
 }
+
+export function loadApiKey(): string | null {
+  return loadSheet()?.apiKey ?? null
+}
+
+// Keeps the saved tickers, so a host that stores its own list can still keep the key here.
+export function saveApiKey(apiKey: string | null) {
+  saveSheet({ tickers: loadSheet()?.tickers ?? [], apiKey })
+}

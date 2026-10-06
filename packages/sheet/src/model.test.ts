@@ -57,4 +57,11 @@ describe("sheet model", () => {
     state = reduceGrid(state, { type: "toggle-all" })
     expect(state.selected).toEqual([])
   })
+
+  it("keeps the checked rows when a ticker is added", () => {
+    let state = initialGrid(["AAPL", "MSFT"])
+    state = reduceGrid(state, { type: "toggle-row", row: 1 })
+    state = reduceGrid(state, { type: "add-row" })
+    expect(state.selected).toEqual([1])
+  })
 })
