@@ -3,6 +3,8 @@ import { isUsEquitySessionOpen } from "./market-hours"
 import { parseSymbol } from "./symbols"
 import { ProviderRequestError, type ProviderStatus, type Quote, type QuoteProvider, type Snapshot, type Symbol } from "./types"
 
+type Answer = { body: unknown; at: number }
+
 type Registration = {
   symbols: readonly Symbol[]
   listener: (quote: Quote) => void
@@ -10,7 +12,7 @@ type Registration = {
 
 const WINDOW_MS = 60_000
 export const FINNHUB_MIN_INTERVAL_MS = 1000
-export const FINNHUB_POLL_MS = 5 * 60 * 1000
+export const FINNHUB_POLL_MS = 2 * 60 * 1000
 export const FINNHUB_CACHE_MS = 2 * 60 * 1000
 
 // Answers a host keeps between visits. A request is the path and symbol, never the key.
@@ -61,7 +63,7 @@ export function createFinnhubProvider(options: {
   const stamps: number[] = []
   let nextStart = 0
   const snapshots = new Map<Symbol, { at: number; result: Promise<Snapshot> }>()
-  const loading = new Map<string, Promise<unknown>>()
+  const loading = new Map<string, Promise<Answer>>()
 
   function currentStatus(): ProviderStatus {
     if (invalid) return { kind: "invalid-key", message: "Finnhub rejected the API key." }
@@ -109,10 +111,10 @@ export function createFinnhubProvider(options: {
     }, delay)
   }
 
-  function deliver(symbol: Symbol, body: unknown) {
-    const { c, pc } = body as { c?: unknown; pc?: unknown }
+  function deliver(symbol: Symbol, answer: Answer) {
+    const { c, pc } = answer.body as { c?: unknown; pc?: unknown }
     if (typeof c !== "number" || c <= 0) return
-    const quote: Quote = { symbol, price: c, timeMs: clock.now() }
+    const quote: Quote = { symbol, price: c, timeMs: answer.at }
     if (typeof pc === "number" && pc > 0) quote.previousClose = pc
     for (const registration of registrations) {
       if (registration.symbols.includes(symbol)) registration.listener(quote)
@@ -120,7 +122,7 @@ export function createFinnhubProvider(options: {
   }
 
   // One call per request at a time, so a poll and a snapshot asking together share it.
-  function load(request: string): Promise<unknown> {
+  function load(request: string): Promise<Answer> {
     const pending = loading.get(request)
     if (pending) return pending
     const url = `https://finnhub.io/api/v1/${request}&token=${encodeURIComponent(token)}`
@@ -128,7 +130,7 @@ export function createFinnhubProvider(options: {
       .then(readJson)
       .then((body) => {
         cache?.set(request, body)
-        return body
+        return { body, at: clock.now() }
       })
     loading.set(request, result)
     const done = () => {
@@ -140,14 +142,14 @@ export function createFinnhubProvider(options: {
 
   // A cached answer inside cacheMs costs no call. With onRefresh, an older one is returned
   // at once and replaced behind it. Without, the caller waits for the new answer.
-  function ask(request: string, onRefresh?: (body: unknown) => void): Promise<unknown> {
+  function ask(request: string, onRefresh?: (answer: Answer) => void): Promise<Answer> {
     const entry = cache?.get(request)
-    if (entry && clock.now() - entry.at < cacheMs) return Promise.resolve(entry.body)
+    if (entry && clock.now() - entry.at < cacheMs) return Promise.resolve(entry)
     if (entry && onRefresh) {
       load(request).then(onRefresh, () => {
         // The old answer stays on screen. The next poll tries again.
       })
-      return Promise.resolve(entry.body)
+      return Promise.resolve(entry)
     }
     return load(request)
   }
@@ -164,9 +166,9 @@ export function createFinnhubProvider(options: {
       const symbol = parseSymbol(raw)
       if (!symbol) continue
       try {
-        const body = await ask(quoteRequest(symbol))
+        const answer = await ask(quoteRequest(symbol))
         if (gen !== generation || invalid) return
-        deliver(symbol, body)
+        deliver(symbol, answer)
       } catch {
         if (gen !== generation || invalid) return
         anyFailed = true
@@ -226,15 +228,17 @@ export function createFinnhubProvider(options: {
   }
 
   async function fetchSnapshot(symbol: Symbol): Promise<Snapshot> {
-    const [quote, profile] = (await Promise.all([
-      ask(quoteRequest(symbol), (body) => deliver(symbol, body)),
+    const [quoteAnswer, profileAnswer] = await Promise.all([
+      ask(quoteRequest(symbol), (answer) => deliver(symbol, answer)),
       ask(profileRequest(symbol), () => {}),
-    ])) as [{ c?: unknown; pc?: unknown }, { name?: unknown }]
+    ])
+    const quote = quoteAnswer.body as { c?: unknown; pc?: unknown }
+    const profile = profileAnswer.body as { name?: unknown }
     const price = typeof quote.c === "number" && quote.c > 0 ? quote.c : null
     const previousClose = typeof quote.pc === "number" && quote.pc > 0 ? quote.pc : null
     const name = typeof profile.name === "string" && profile.name.length > 0 ? profile.name : null
     if (price == null && name == null) return { symbol, name: null, previousClose: null, price: null }
-    return { symbol, name: name ?? symbol, previousClose, price }
+    return { symbol, name: name ?? symbol, previousClose, price, timeMs: quoteAnswer.at }
   }
 
   return {

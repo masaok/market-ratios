@@ -15,6 +15,8 @@ export type Snapshot = {
   name: string | null
   previousClose: number | null
   price: number | null
+  // When the price was fetched, if the provider knows. A sheet hides a price that is too old.
+  timeMs?: number
 }
 
 export type ProviderStatus =

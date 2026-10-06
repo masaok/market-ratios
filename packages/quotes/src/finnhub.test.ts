@@ -45,7 +45,7 @@ async function flush() {
 }
 
 describe("Finnhub provider", () => {
-  it("polls once on subscribe and again after five minutes", async () => {
+  it("polls once on subscribe and again after two minutes", async () => {
     const clock = manualClock()
     const quotes: number[] = []
     let price = 181.5

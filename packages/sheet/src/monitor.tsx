@@ -59,6 +59,7 @@ export function StockMonitor({
   apiKey: hostApiKey,
   onApiKeyChange,
   finnhubCache,
+  finnhubFetch,
   manageRows = false,
   workspace = false,
 }: {
@@ -70,6 +71,8 @@ export function StockMonitor({
   onApiKeyChange?: (apiKey: string | null) => void
   // Keep this object the same between renders. A new one starts a new provider.
   finnhubCache?: FinnhubCache
+  // Sends the Finnhub calls somewhere else, such as a host's own server. Keep it the same too.
+  finnhubFetch?: typeof fetch
   manageRows?: boolean
   workspace?: boolean
 }) {
@@ -93,9 +96,14 @@ export function StockMonitor({
 
   const provider = useMemo(() => {
     if (providerOverride) return providerOverride
-    if (apiKey) return createFinnhubProvider({ token: apiKey, cache: finnhubCache })
+    if (apiKey) return createFinnhubProvider({ token: apiKey, cache: finnhubCache, fetch: finnhubFetch })
     return createSimulatedProvider()
-  }, [providerOverride, apiKey, finnhubCache])
+  }, [providerOverride, apiKey, finnhubCache, finnhubFetch])
+
+  useEffect(() => {
+    const timer = setInterval(() => book.expire(), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   const tickerKey = state.tickers.join("\n")
   const symbols = useMemo(() => {
@@ -113,12 +121,14 @@ export function StockMonitor({
     const unstatus = provider.onStatus(setStatus)
     let cancelled = false
     for (const symbol of live) {
+      book.beginLoad(symbol)
       provider.getSnapshot(symbol).then(
         (snapshot) => {
           if (!cancelled) book.applySnapshot(snapshot)
         },
         () => {
           // The status listener reports an invalid key. This row stays blank.
+          if (!cancelled) book.failLoad(symbol)
         },
       )
     }
@@ -410,6 +420,13 @@ function CompanyCell({ symbol }: { symbol: string }) {
       </span>
     )
   }
+  if (slice.loading && slice.name == null) {
+    return (
+      <span data-testid={`company-${symbol}`}>
+        <Loading wide />
+      </span>
+    )
+  }
   return <span data-testid={`company-${symbol}`}>{slice.name ?? ""}</span>
 }
 
@@ -431,7 +448,7 @@ function PriceCell({ symbol, marketClosed }: { symbol: string; marketClosed: boo
       data-price={price ?? ""}
       className={slice.flash ? "amount flash" : "amount"}
     >
-      {price == null ? "" : formatPrice(price)}
+      {price == null ? slice.loading ? <Loading /> : "" : formatPrice(price)}
     </span>
   )
 }
@@ -440,6 +457,7 @@ function ChangeCell({ symbol, marketClosed }: { symbol: string; marketClosed: bo
   const slice = usePrice(symbol)
   if (slice.unknown) return null
   const price = marketClosed ? (slice.previousClose ?? slice.price) : slice.price
+  if (price == null && slice.loading) return <Loading />
   if (price == null || slice.previousClose == null) return null
   const percent = changePercent(price, slice.previousClose)
   if (percent == null) return null
@@ -453,6 +471,10 @@ function ChangeCell({ symbol, marketClosed }: { symbol: string; marketClosed: bo
       {percent > 0 ? `+${formatPercent(percent)}` : formatPercent(percent)}
     </span>
   )
+}
+
+function Loading({ wide = false }: { wide?: boolean }) {
+  return <span className={wide ? "loading wide" : "loading"} role="img" aria-label="Loading" />
 }
 
 // A bigger move gets a deeper tint, and a 2% move is as deep as it goes.

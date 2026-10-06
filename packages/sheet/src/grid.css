@@ -370,6 +370,31 @@
   }
 }
 
+.monitor .loading {
+  display: inline-block;
+  width: 56px;
+  height: 10px;
+  border-radius: 5px;
+  vertical-align: middle;
+  background: linear-gradient(90deg, var(--line) 25%, var(--wash) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: loading 1.2s linear infinite;
+}
+
+.monitor .loading.wide {
+  width: 140px;
+  max-width: 100%;
+}
+
+@keyframes loading {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
 @keyframes caret {
   50% {
     opacity: 0;
@@ -436,6 +461,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .monitor .flash,
+  .monitor .loading,
   .monitor td.editing::after {
     animation: none;
   }

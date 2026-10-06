@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { StockMonitor } from "./monitor"
 
 function manualClock(): Clock & { advance: (ms: number) => void } {
-  let now = 1_000_000
+  let now = Date.now()
   const timers: { id: number; at: number; fn: () => void }[] = []
   let nextId = 1
   return {
