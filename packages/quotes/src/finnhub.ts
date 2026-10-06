@@ -11,6 +11,21 @@ type Registration = {
 const WINDOW_MS = 60_000
 export const FINNHUB_MIN_INTERVAL_MS = 1000
 export const FINNHUB_POLL_MS = 5 * 60 * 1000
+export const FINNHUB_CACHE_MS = 2 * 60 * 1000
+
+// Answers a host keeps between visits. A request is the path and symbol, never the key.
+export type FinnhubCache = {
+  get(request: string): { body: unknown; at: number } | null
+  set(request: string, body: unknown): void
+}
+
+function quoteRequest(symbol: Symbol): string {
+  return `quote?symbol=${encodeURIComponent(symbol)}`
+}
+
+function profileRequest(symbol: Symbol): string {
+  return `stock/profile2?symbol=${encodeURIComponent(symbol)}`
+}
 
 export function createFinnhubProvider(options: {
   token: string
@@ -21,6 +36,8 @@ export function createFinnhubProvider(options: {
   restPerMinute?: number
   minIntervalMs?: number
   pollMs?: number
+  cache?: FinnhubCache
+  cacheMs?: number
 }): QuoteProvider {
   const fetchImpl = options.fetch ?? fetch
   const clock = options.clock ?? realClock
@@ -29,6 +46,8 @@ export function createFinnhubProvider(options: {
   const restPerMinute = options.restPerMinute ?? 60
   const minIntervalMs = options.minIntervalMs ?? FINNHUB_MIN_INTERVAL_MS
   const pollMs = options.pollMs ?? FINNHUB_POLL_MS
+  const cache = options.cache
+  const cacheMs = options.cacheMs ?? FINNHUB_CACHE_MS
   const token = options.token
 
   const registrations: Registration[] = []
@@ -42,6 +61,7 @@ export function createFinnhubProvider(options: {
   const stamps: number[] = []
   let nextStart = 0
   const snapshots = new Map<Symbol, { at: number; result: Promise<Snapshot> }>()
+  const loading = new Map<string, Promise<unknown>>()
 
   function currentStatus(): ProviderStatus {
     if (invalid) return { kind: "invalid-key", message: "Finnhub rejected the API key." }
@@ -89,11 +109,47 @@ export function createFinnhubProvider(options: {
     }, delay)
   }
 
-  function deliver(symbol: Symbol, price: number) {
-    const quote: Quote = { symbol, price, timeMs: clock.now() }
+  function deliver(symbol: Symbol, body: unknown) {
+    const { c, pc } = body as { c?: unknown; pc?: unknown }
+    if (typeof c !== "number" || c <= 0) return
+    const quote: Quote = { symbol, price: c, timeMs: clock.now() }
+    if (typeof pc === "number" && pc > 0) quote.previousClose = pc
     for (const registration of registrations) {
       if (registration.symbols.includes(symbol)) registration.listener(quote)
     }
+  }
+
+  // One call per request at a time, so a poll and a snapshot asking together share it.
+  function load(request: string): Promise<unknown> {
+    const pending = loading.get(request)
+    if (pending) return pending
+    const url = `https://finnhub.io/api/v1/${request}&token=${encodeURIComponent(token)}`
+    const result = runLimited(() => fetchImpl(url))
+      .then(readJson)
+      .then((body) => {
+        cache?.set(request, body)
+        return body
+      })
+    loading.set(request, result)
+    const done = () => {
+      if (loading.get(request) === result) loading.delete(request)
+    }
+    result.then(done, done)
+    return result
+  }
+
+  // A cached answer inside cacheMs costs no call. With onRefresh, an older one is returned
+  // at once and replaced behind it. Without, the caller waits for the new answer.
+  function ask(request: string, onRefresh?: (body: unknown) => void): Promise<unknown> {
+    const entry = cache?.get(request)
+    if (entry && clock.now() - entry.at < cacheMs) return Promise.resolve(entry.body)
+    if (entry && onRefresh) {
+      load(request).then(onRefresh, () => {
+        // The old answer stays on screen. The next poll tries again.
+      })
+      return Promise.resolve(entry.body)
+    }
+    return load(request)
   }
 
   async function poll() {
@@ -108,11 +164,9 @@ export function createFinnhubProvider(options: {
       const symbol = parseSymbol(raw)
       if (!symbol) continue
       try {
-        const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
-        const response = await runLimited(() => fetchImpl(url))
+        const body = await ask(quoteRequest(symbol))
         if (gen !== generation || invalid) return
-        const body = (await readJson(response)) as { c?: unknown }
-        if (typeof body.c === "number" && body.c > 0) deliver(symbol, body.c)
+        deliver(symbol, body)
       } catch {
         if (gen !== generation || invalid) return
         anyFailed = true
@@ -172,14 +226,10 @@ export function createFinnhubProvider(options: {
   }
 
   async function fetchSnapshot(symbol: Symbol): Promise<Snapshot> {
-    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
-    const profileUrl = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`
-    const [quoteResponse, profileResponse] = await Promise.all([
-      runLimited(() => fetchImpl(quoteUrl)),
-      runLimited(() => fetchImpl(profileUrl)),
-    ])
-    const quote = (await readJson(quoteResponse)) as { c?: unknown; pc?: unknown }
-    const profile = (await readJson(profileResponse)) as { name?: unknown }
+    const [quote, profile] = (await Promise.all([
+      ask(quoteRequest(symbol), (body) => deliver(symbol, body)),
+      ask(profileRequest(symbol), () => {}),
+    ])) as [{ c?: unknown; pc?: unknown }, { name?: unknown }]
     const price = typeof quote.c === "number" && quote.c > 0 ? quote.c : null
     const previousClose = typeof quote.pc === "number" && quote.pc > 0 ? quote.pc : null
     const name = typeof profile.name === "string" && profile.name.length > 0 ? profile.name : null

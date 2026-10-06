@@ -6,6 +6,7 @@ import {
   createSimulatedProvider,
   parseSymbol,
   probeFinnhubKey,
+  type FinnhubCache,
   type ProviderStatus,
   type QuoteProvider,
   type Symbol,
@@ -57,6 +58,7 @@ export function StockMonitor({
   onTickersChange,
   apiKey: hostApiKey,
   onApiKeyChange,
+  finnhubCache,
   manageRows = false,
   workspace = false,
 }: {
@@ -66,6 +68,8 @@ export function StockMonitor({
   // A host that passes apiKey owns the key. The sheet then leaves browser storage alone.
   apiKey?: string | null
   onApiKeyChange?: (apiKey: string | null) => void
+  // Keep this object the same between renders. A new one starts a new provider.
+  finnhubCache?: FinnhubCache
   manageRows?: boolean
   workspace?: boolean
 }) {
@@ -89,9 +93,9 @@ export function StockMonitor({
 
   const provider = useMemo(() => {
     if (providerOverride) return providerOverride
-    if (apiKey) return createFinnhubProvider({ token: apiKey })
+    if (apiKey) return createFinnhubProvider({ token: apiKey, cache: finnhubCache })
     return createSimulatedProvider()
-  }, [providerOverride, apiKey])
+  }, [providerOverride, apiKey, finnhubCache])
 
   const tickerKey = state.tickers.join("\n")
   const symbols = useMemo(() => {

@@ -201,6 +201,80 @@ describe("Finnhub provider", () => {
     expect(calls).toBe(6)
   })
 
+  it("answers from a fresh cache without a call, and saves what it loads", async () => {
+    const clock = manualClock()
+    const requested: string[] = []
+    const saved: string[] = []
+    const store = new Map<string, { body: unknown; at: number }>([
+      ["quote?symbol=AAPL", { body: { c: 10, pc: 8 }, at: clock.now() - 119_999 }],
+      ["stock/profile2?symbol=AAPL", { body: { name: "Apple Inc." }, at: clock.now() - 1000 }],
+    ])
+    const provider = createFinnhubProvider({
+      token: "secret-key",
+      clock,
+      minIntervalMs: 0,
+      marketOpen: () => true,
+      cache: {
+        get: (request) => store.get(request) ?? null,
+        set: (request, body) => {
+          saved.push(request)
+          store.set(request, { body, at: clock.now() })
+        },
+      },
+      fetch: async (url) => {
+        requested.push(String(url))
+        if (String(url).includes("profile2")) return json({ name: "Microsoft" })
+        return json({ c: 20, pc: 19 })
+      },
+    })
+    const aapl = parseSymbol("AAPL")
+    const msft = parseSymbol("MSFT")
+    if (!aapl || !msft) throw new Error("symbols")
+    expect(await provider.getSnapshot(aapl)).toMatchObject({ name: "Apple Inc.", price: 10, previousClose: 8 })
+    expect(requested).toEqual([])
+    expect(await provider.getSnapshot(msft)).toMatchObject({ name: "Microsoft", price: 20 })
+    expect(requested).toHaveLength(2)
+    expect(saved).toEqual(["quote?symbol=MSFT", "stock/profile2?symbol=MSFT"])
+    expect(saved.join(" ")).not.toContain("secret-key")
+  })
+
+  it("shows an expired answer at once and replaces it behind, one call a second", async () => {
+    const clock = manualClock()
+    const requested: string[] = []
+    const quotes: { symbol: string; price: number; previousClose?: number }[] = []
+    const old = clock.now() - 120_000
+    const store = new Map<string, { body: unknown; at: number }>([
+      ["quote?symbol=AAPL", { body: { c: 10, pc: 8 }, at: old }],
+      ["stock/profile2?symbol=AAPL", { body: { name: "Apple Inc." }, at: old }],
+    ])
+    const provider = createFinnhubProvider({
+      token: "test-key",
+      clock,
+      marketOpen: () => true,
+      cache: {
+        get: (request) => store.get(request) ?? null,
+        set: (request, body) => store.set(request, { body, at: clock.now() }),
+      },
+      fetch: async (url) => {
+        requested.push(String(url).includes("profile2") ? "profile" : "quote")
+        if (String(url).includes("profile2")) return json({ name: "Apple Inc." })
+        return json({ c: 11, pc: 10 })
+      },
+    })
+    const aapl = parseSymbol("AAPL")
+    if (!aapl) throw new Error("AAPL")
+    provider.subscribe([aapl], (quote) => quotes.push(quote))
+    expect(await provider.getSnapshot(aapl)).toMatchObject({ name: "Apple Inc.", price: 10, previousClose: 8 })
+    await flush()
+    // The poll and the snapshot both wanted the quote, and shared one call.
+    expect(requested).toEqual(["quote"])
+    expect(quotes.at(-1)).toMatchObject({ price: 11, previousClose: 10 })
+    clock.advance(1000)
+    await flush()
+    expect(requested).toEqual(["quote", "profile"])
+    expect(store.get("quote?symbol=AAPL")?.body).toEqual({ c: 11, pc: 10 })
+  })
+
   it("rejects an invalid key and keeps an unknown ticker empty", async () => {
     const statuses: ProviderStatus[] = []
     const provider = createFinnhubProvider({

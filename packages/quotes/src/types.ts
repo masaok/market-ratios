@@ -6,6 +6,8 @@ export type Quote = {
   symbol: Symbol
   price: number
   timeMs: number
+  // Sent when the provider learned it with the price, so a sheet open past a close stays right.
+  previousClose?: number
 }
 
 export type Snapshot = {

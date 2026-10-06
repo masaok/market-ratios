@@ -57,7 +57,7 @@ export class QuoteBook {
     if (previous.unknown) return
     this.prices.set(quote.symbol, {
       price: quote.price,
-      previousClose: previous.previousClose,
+      previousClose: quote.previousClose ?? previous.previousClose,
       flash: true,
       unknown: false,
     })
