@@ -8,17 +8,22 @@ export type GridState = {
   anchor: Addr
   focus: Addr
   editing: { addr: Addr; draft: string } | null
+  selected: number[]
 }
 
 export type GridAction =
   | { type: "select"; addr: Addr; shift: boolean }
   | { type: "move"; dc: number; dr: number; shift: boolean }
   | { type: "begin-edit"; seed?: string }
+  | { type: "edit-ticker"; row: number }
   | { type: "draft"; text: string }
   | { type: "commit" }
   | { type: "cancel" }
   | { type: "clear" }
   | { type: "add-row" }
+  | { type: "toggle-row"; row: number }
+  | { type: "toggle-all" }
+  | { type: "delete-selected" }
 
 export function changePercent(price: number, previousClose: number): number | null {
   if (!Number.isFinite(price) || !Number.isFinite(previousClose) || previousClose === 0) return null
@@ -47,7 +52,15 @@ export function initialGrid(tickers: readonly string[]): GridState {
   const list = tickers.map((ticker) => ticker.trim().toUpperCase()).filter((ticker) => ticker.length > 0)
   list.push("")
   const focus = { c: COL.ticker, r: 0 }
-  return { tickers: list, anchor: focus, focus, editing: null }
+  return { tickers: list, anchor: focus, focus, editing: null, selected: [] }
+}
+
+function filledRows(tickers: readonly string[]): number[] {
+  const rows: number[] = []
+  tickers.forEach((ticker, index) => {
+    if (ticker !== "") rows.push(index)
+  })
+  return rows
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -99,6 +112,37 @@ export function reduceGrid(state: GridState, action: GridAction): GridState {
       const current = state.tickers[index] ?? ""
       const draft = action.seed != null ? action.seed.toUpperCase() : current
       return { ...state, editing: { addr: state.focus, draft } }
+    }
+    case "edit-ticker": {
+      const committed = commitEditing(state)
+      if (action.row < 0 || action.row >= committed.tickers.length) return committed
+      const addr = { c: COL.ticker, r: action.row }
+      return {
+        ...committed,
+        focus: addr,
+        anchor: addr,
+        editing: { addr, draft: committed.tickers[action.row] ?? "" },
+      }
+    }
+    case "toggle-row": {
+      const ticker = state.tickers[action.row]
+      if (!ticker) return state
+      const selected = state.selected.includes(action.row)
+        ? state.selected.filter((row) => row !== action.row)
+        : [...state.selected, action.row]
+      return { ...state, selected }
+    }
+    case "toggle-all": {
+      const rows = filledRows(state.tickers)
+      const all = rows.length > 0 && rows.every((row) => state.selected.includes(row))
+      return { ...state, selected: all ? [] : rows }
+    }
+    case "delete-selected": {
+      const drop = new Set(state.selected)
+      const tickers = state.tickers.filter((ticker, index) => ticker === "" || !drop.has(index))
+      if (tickers.at(-1) !== "") tickers.push("")
+      const focus = { c: COL.ticker, r: 0 }
+      return { tickers, anchor: focus, focus, editing: null, selected: [] }
     }
     case "add-row": {
       const committed = commitEditing(state)

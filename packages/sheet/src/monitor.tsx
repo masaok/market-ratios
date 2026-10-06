@@ -55,10 +55,14 @@ export function StockMonitor({
   provider: providerOverride,
   tickers,
   onTickersChange,
+  manageRows = false,
+  workspace = false,
 }: {
   provider?: QuoteProvider
   tickers?: readonly string[]
   onTickersChange?: (tickers: string[]) => void
+  manageRows?: boolean
+  workspace?: boolean
 }) {
   const [state, setState] = useState<GridState>(() => initialMonitorState(tickers))
   const [apiKey, setApiKey] = useState<string | null>(initialApiKey)
@@ -153,7 +157,7 @@ export function StockMonitor({
   const statusText = statusTextFor(status, listed, capped.size, provider.limits.maxSymbols)
 
   return (
-    <div className="monitor">
+    <div className={workspace ? "monitor workspace" : "monitor"}>
       <header className="monitor-head">
         <div>
           <h1>Real-Time Stock Monitor</h1>
@@ -161,9 +165,21 @@ export function StockMonitor({
             {statusText}
           </p>
         </div>
-        <button type="button" onClick={() => dispatch({ type: "add-row" })}>
-          Add ticker
-        </button>
+        <div className="monitor-actions">
+          {manageRows ? (
+            <button
+              type="button"
+              className="danger"
+              disabled={state.selected.length === 0}
+              onClick={() => dispatch({ type: "delete-selected" })}
+            >
+              Delete
+            </button>
+          ) : null}
+          <button type="button" onClick={() => dispatch({ type: "add-row" })}>
+            Add ticker
+          </button>
+        </div>
       </header>
       {status.kind === "simulated" ? (
         <div className="banner" role="status">
@@ -213,8 +229,9 @@ export function StockMonitor({
       <Grid
         state={state}
         columns={COLUMNS}
+        selectable={manageRows}
         dispatch={dispatch}
-        cell={(addr) => cellFor(state, addr, capped, status)}
+        cell={(addr) => cellFor(state, addr, capped, status, manageRows, dispatch)}
       />
     </div>
   )
@@ -225,12 +242,11 @@ function cellFor(
   addr: Addr,
   capped: Set<Symbol>,
   status: ProviderStatus,
+  manageRows: boolean,
+  dispatch: (action: Parameters<typeof reduceGrid>[1]) => void,
 ): CellModel {
   const symbol = symbolForRow(state, addr.r)
-  if (addr.c === COL.ticker) {
-    if (!symbol) return { text: "", node: <span className="placeholder">Add a ticker</span> }
-    return { text: symbol }
-  }
+  if (addr.c === COL.ticker) return tickerCell(state, addr, symbol, manageRows, dispatch)
   if (!symbol) return { text: "" }
   const parsed = parseSymbol(symbol)
   if (!parsed) return { text: addr.c === COL.company ? "Unknown symbol" : "", className: "dimmed" }
@@ -254,6 +270,101 @@ function cellFor(
     }
   }
   return { text: "" }
+}
+
+function tickerCell(
+  state: GridState,
+  addr: Addr,
+  symbol: string,
+  manageRows: boolean,
+  dispatch: (action: Parameters<typeof reduceGrid>[1]) => void,
+): CellModel {
+  const editing = state.editing?.addr.c === COL.ticker && state.editing.addr.r === addr.r
+  if (manageRows && editing && state.editing) {
+    return {
+      text: state.editing.draft,
+      node: (
+        <TickerEditor
+          draft={state.editing.draft}
+          onDraft={(text) => dispatch({ type: "draft", text })}
+          onSave={() => dispatch({ type: "commit" })}
+          onCancel={() => dispatch({ type: "cancel" })}
+        />
+      ),
+    }
+  }
+  if (!symbol) {
+    if (!manageRows) return { text: "", node: <span className="placeholder">Add a ticker</span> }
+    return {
+      text: "",
+      node: (
+        <button
+          type="button"
+          className="placeholder-btn"
+          onClick={(event) => {
+            event.stopPropagation()
+            dispatch({ type: "edit-ticker", row: addr.r })
+          }}
+        >
+          Add a ticker
+        </button>
+      ),
+    }
+  }
+  if (!manageRows) return { text: symbol }
+  return {
+    text: symbol,
+    node: (
+      <button
+        type="button"
+        className="ticker-button"
+        onClick={(event) => {
+          event.stopPropagation()
+          dispatch({ type: "edit-ticker", row: addr.r })
+        }}
+      >
+        {symbol}
+      </button>
+    ),
+  }
+}
+
+function TickerEditor({
+  draft,
+  onDraft,
+  onSave,
+  onCancel,
+}: {
+  draft: string
+  onDraft: (text: string) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  return (
+    <form
+      className="ticker-edit"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSave()
+      }}
+    >
+      <input
+        aria-label="Ticker symbol"
+        autoFocus
+        value={draft}
+        onChange={(event) => onDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault()
+            onCancel()
+          }
+        }}
+      />
+      <button type="submit" onMouseDown={(event) => event.preventDefault()}>
+        Save
+      </button>
+    </form>
+  )
 }
 
 function usePrice(symbol: string): PriceSlice {

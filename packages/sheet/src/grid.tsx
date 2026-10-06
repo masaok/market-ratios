@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from "react"
+import { useEffect, useRef, type ReactNode } from "react"
 import {
   COL_COUNT,
   inRange,
@@ -24,11 +24,13 @@ export function Grid({
   columns,
   dispatch,
   cell,
+  selectable = false,
 }: {
   state: GridState
   columns: readonly ColumnModel[]
   dispatch: (action: GridAction) => void
   cell: (addr: Addr) => CellModel
+  selectable?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const rows = rowCount(state)
@@ -91,6 +93,10 @@ export function Grid({
     dispatch({ type: "move", dc, dr, shift: event.shiftKey })
   }
 
+  const filled = state.tickers.flatMap((ticker, index) => (ticker === "" ? [] : [index]))
+  const allChecked = filled.length > 0 && filled.every((row) => state.selected.includes(row))
+  const someChecked = filled.some((row) => state.selected.includes(row))
+
   return (
     <div
       ref={ref}
@@ -109,12 +115,22 @@ export function Grid({
     >
       <table>
         <colgroup>
+          {selectable ? <col className="check" /> : null}
           {columns.map((column) => (
             <col key={column.label} className={column.className} />
           ))}
         </colgroup>
         <thead>
           <tr>
+            {selectable ? (
+              <th className="check" scope="col">
+                <SelectAll
+                  checked={allChecked}
+                  indeterminate={someChecked && !allChecked}
+                  onChange={() => dispatch({ type: "toggle-all" })}
+                />
+              </th>
+            ) : null}
             {columns.map((column) => (
               <th key={column.label} scope="col" className={column.className}>
                 {column.label}
@@ -125,6 +141,18 @@ export function Grid({
         <tbody>
           {Array.from({ length: rows }, (_, r) => (
             <tr key={r}>
+              {selectable ? (
+                <td className="check">
+                  {state.tickers[r] ? (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${state.tickers[r]}`}
+                      checked={state.selected.includes(r)}
+                      onChange={() => dispatch({ type: "toggle-row", row: r })}
+                    />
+                  ) : null}
+                </td>
+              ) : null}
               {Array.from({ length: COL_COUNT }, (_, c) => {
                 const addr = { c, r }
                 const model = cell(addr)
@@ -141,14 +169,14 @@ export function Grid({
                       model.className,
                       ranged ? "range" : "",
                       focused ? "focus" : "",
-                      editing ? "editing" : "",
+                      editing && !model.node ? "editing" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     onClick={(event) => dispatch({ type: "select", addr, shift: event.shiftKey })}
                     onDoubleClick={() => dispatch({ type: "begin-edit" })}
                   >
-                    {editing && state.editing ? state.editing.draft : (model.node ?? model.text)}
+                    {model.node ?? (editing && state.editing ? state.editing.draft : model.text)}
                   </td>
                 )
               })}
@@ -157,5 +185,23 @@ export function Grid({
         </tbody>
       </table>
     </div>
+  )
+}
+
+function SelectAll({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean
+  indeterminate: boolean
+  onChange: () => void
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate
+  }, [indeterminate])
+  return (
+    <input ref={ref} type="checkbox" aria-label="Select all rows" checked={checked} onChange={onChange} />
   )
 }

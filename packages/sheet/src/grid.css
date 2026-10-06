@@ -31,6 +31,12 @@
   flex-wrap: wrap;
 }
 
+.monitor-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .monitor-head h1 {
   margin: 0;
   font-size: 28px;
@@ -70,6 +76,56 @@
   background: var(--loss);
 }
 
+.monitor button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.monitor button.danger {
+  background: #ffffff;
+  color: var(--loss);
+  border-color: #e7c4c0;
+}
+
+.monitor button.ticker-button,
+.monitor button.placeholder-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.monitor button.placeholder-btn {
+  color: #8a94a1;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.monitor .ticker-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.monitor .ticker-edit input {
+  width: 72px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.monitor .ticker-edit button {
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
 .monitor button {
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -84,6 +140,16 @@
 
 .monitor button:hover {
   background: #2640bd;
+}
+
+.monitor button.danger:hover {
+  background: #fff5f4;
+}
+
+.monitor button.ticker-button:hover,
+.monitor button.placeholder-btn:hover {
+  background: transparent;
+  color: inherit;
 }
 
 .monitor button.quiet {
@@ -162,8 +228,18 @@
   width: 100%;
 }
 
+.monitor col.check {
+  width: 44px;
+}
+
 .monitor col.ticker {
-  width: 120px;
+  width: 160px;
+}
+
+.monitor th.check,
+.monitor td.check {
+  padding: 0 8px;
+  text-align: center;
 }
 
 .monitor col.price,
@@ -298,6 +374,32 @@
   50% {
     opacity: 0;
   }
+}
+
+.monitor.workspace {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px 0 64px;
+}
+
+.monitor.workspace .monitor-head,
+.monitor.workspace .banner,
+.monitor.workspace .key-panel {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.monitor.workspace .grid-scroll {
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+}
+
+.monitor.workspace h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 
 @media (max-width: 560px) {

@@ -38,4 +38,23 @@ describe("sheet model", () => {
     expect(state.anchor).toEqual({ c: 1, r: 0 })
     expect(state.focus).toEqual({ c: 1, r: 1 })
   })
+
+  it("checks rows and deletes them together", () => {
+    let state = initialGrid(["AAPL", "MSFT", "KO"])
+    state = reduceGrid(state, { type: "toggle-row", row: 0 })
+    state = reduceGrid(state, { type: "toggle-row", row: 2 })
+    state = reduceGrid(state, { type: "toggle-row", row: 3 })
+    expect(state.selected).toEqual([0, 2])
+    state = reduceGrid(state, { type: "delete-selected" })
+    expect(state.tickers.filter((ticker) => ticker !== "")).toEqual(["MSFT"])
+    expect(state.selected).toEqual([])
+  })
+
+  it("checks every filled row, then clears that check", () => {
+    let state = initialGrid(["AAPL", "MSFT"])
+    state = reduceGrid(state, { type: "toggle-all" })
+    expect(state.selected).toEqual([0, 1])
+    state = reduceGrid(state, { type: "toggle-all" })
+    expect(state.selected).toEqual([])
+  })
 })
