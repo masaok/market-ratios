@@ -6,22 +6,67 @@ The sheet starts in demo mode, so you can see it move before you create an accou
 
 ![The Monitor sheet running on simulated prices](docs/monitor.png)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/masaok/market-ratios&project-name=market-ratios&root-directory=apps/demo)
+## Set up the demo
 
-## Run the demo
+You need [Node.js 22](https://nodejs.org/). The repo pins pnpm 12.4.1 in `package.json`. Run the commands below from the repository root. The demo app is in `apps/demo`.
 
-Install pnpm 12, then from this directory:
+1. Clone the repository.
+
+   ```bash
+   git clone https://github.com/masaok/market-ratios.git
+   cd market-ratios
+   ```
+
+2. Enable Corepack.
+
+   ```bash
+   corepack enable
+   ```
+
+3. Activate the pinned pnpm.
+
+   ```bash
+   corepack prepare pnpm@12.4.1 --activate
+   ```
+
+4. Install dependencies.
+
+   ```bash
+   pnpm install
+   ```
+
+   If pnpm reports that it ignored the esbuild build, confirm `pnpm-workspace.yaml` sets `esbuild: true` under `allowBuilds`. Run `pnpm install` again.
+
+5. Start the demo.
+
+   ```bash
+   pnpm dev
+   ```
+
+6. Open [http://localhost:3000](http://localhost:3000).
+
+The Monitor sheet lists 22 tickers. Prices change on a short timer. The banner says the data is simulated.
+
+To run the production build on the same port, stop the dev server, then run:
 
 ```bash
-pnpm install
-pnpm dev
+pnpm build
+pnpm --filter @market-ratios/demo start
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The Monitor sheet lists 22 tickers and the prices change on a timer. The banner says the data is simulated.
+## Use a Finnhub key
 
-To use Finnhub, choose **Add a Finnhub key**, paste the key, and choose **Use key**. Prices refresh every 5 minutes. An invalid key stays on the key panel and the sheet keeps the simulated prices. The ticker list and the key are stored in this browser.
+Create a free key at [Finnhub](https://finnhub.io/register). In the sheet, choose **Add a Finnhub key**, paste the key, and choose **Use key**.
+
+Prices refresh every 5 minutes. The first request runs as soon as the key is saved. An invalid key stays on the key panel, and the sheet keeps the simulated prices. This browser stores the ticker list and the key.
 
 `WMM` is in the default list because it is on the reference screenshot. Finnhub may not resolve it as a US ticker. That row shows `#N/A` when the provider has no name and no price.
+
+## Deploy the demo
+
+The Vercel project root is `apps/demo`.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/masaok/market-ratios&project-name=market-ratios&root-directory=apps/demo)
 
 ## Packages
 
