@@ -55,17 +55,24 @@ export function StockMonitor({
   provider: providerOverride,
   tickers,
   onTickersChange,
+  apiKey: hostApiKey,
+  onApiKeyChange,
   manageRows = false,
   workspace = false,
 }: {
   provider?: QuoteProvider
   tickers?: readonly string[]
   onTickersChange?: (tickers: string[]) => void
+  // A host that passes apiKey owns the key. The sheet then leaves browser storage alone.
+  apiKey?: string | null
+  onApiKeyChange?: (apiKey: string | null) => void
   manageRows?: boolean
   workspace?: boolean
 }) {
   const [state, setState] = useState<GridState>(() => initialMonitorState(tickers))
-  const [apiKey, setApiKey] = useState<string | null>(initialApiKey)
+  const [apiKey, setApiKey] = useState<string | null>(() =>
+    hostApiKey === undefined ? initialApiKey() : hostApiKey,
+  )
   const [status, setStatus] = useState<ProviderStatus>({ kind: "simulated" })
   const [keyOpen, setKeyOpen] = useState(false)
   const [keyDraft, setKeyDraft] = useState("")
@@ -128,8 +135,9 @@ export function StockMonitor({
 
   function changeApiKey(next: string | null) {
     setApiKey(next)
+    onApiKeyChange?.(next)
     // A host that keeps the tickers skips the save above, so the key is saved here.
-    if (onTickersChange) saveApiKey(next)
+    if (hostApiKey === undefined && onTickersChange) saveApiKey(next)
   }
 
   async function submitKey(event: FormEvent) {

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { createSimulatedProvider, type Clock } from "@market-ratios/quotes"
-import { act, render, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { StockMonitor } from "./monitor"
 
 function manualClock(): Clock & { advance: (ms: number) => void } {
@@ -38,6 +38,8 @@ describe("stock monitor", () => {
     localStorage.clear()
   })
 
+  afterEach(cleanup)
+
   it("shows the sheet in demo mode and changes a price", async () => {
     const clock = manualClock()
     const provider = createSimulatedProvider({ intervalMs: 500, random: () => 0.99, clock })
@@ -68,6 +70,25 @@ describe("stock monitor", () => {
     )
     expect(screen.getByText("ZZZZ")).toBeTruthy()
     expect(seen.at(-1)).toEqual(["ZZZZ"])
+    expect(localStorage.getItem("market-ratios.sheet.v1")).toBeNull()
+  })
+
+  it("hands a key change to the host that owns the key and leaves browser storage alone", async () => {
+    const seen: (string | null)[] = []
+    const clock = manualClock()
+    const provider = createSimulatedProvider({ intervalMs: 60_000, random: () => 0.5, clock })
+    render(
+      <StockMonitor
+        provider={provider}
+        tickers={["ZZZZ"]}
+        onTickersChange={() => {}}
+        apiKey="abc123"
+        onApiKeyChange={(next) => seen.push(next)}
+      />,
+    )
+    fireEvent.click(screen.getByText("Add a Finnhub key"))
+    fireEvent.click(screen.getByText("Remove key"))
+    expect(seen).toEqual([null])
     expect(localStorage.getItem("market-ratios.sheet.v1")).toBeNull()
   })
 })
