@@ -10,20 +10,23 @@ import {
 
 export type CellModel = {
   text: string
-  colSpan?: number
-  skip?: boolean
   className?: string
   node?: ReactNode
 }
 
-const LETTERS = ["A", "B", "C", "D", "E", "F"]
+export type ColumnModel = {
+  label: string
+  className?: string
+}
 
 export function Grid({
   state,
+  columns,
   dispatch,
   cell,
 }: {
   state: GridState
+  columns: readonly ColumnModel[]
   dispatch: (action: GridAction) => void
   cell: (addr: Addr) => CellModel
 }) {
@@ -106,20 +109,15 @@ export function Grid({
     >
       <table>
         <colgroup>
-          <col className="gutter" />
-          <col className="col-a" />
-          <col className="col-company" />
-          <col className="col-ticker" />
-          <col className="col-price" />
-          <col className="col-change" />
-          <col className="col-f" />
+          {columns.map((column) => (
+            <col key={column.label} className={column.className} />
+          ))}
         </colgroup>
         <thead>
           <tr>
-            <th className="corner" />
-            {LETTERS.map((letter) => (
-              <th key={letter} className="colhead">
-                {letter}
+            {columns.map((column) => (
+              <th key={column.label} scope="col" className={column.className}>
+                {column.label}
               </th>
             ))}
           </tr>
@@ -127,21 +125,24 @@ export function Grid({
         <tbody>
           {Array.from({ length: rows }, (_, r) => (
             <tr key={r}>
-              <th className="rowhead">{r + 1}</th>
               {Array.from({ length: COL_COUNT }, (_, c) => {
                 const addr = { c, r }
                 const model = cell(addr)
-                if (model.skip) return null
                 const focused = state.focus.c === c && state.focus.r === r
                 const ranged = inRange(state.anchor, state.focus, addr)
                 const editing = state.editing?.addr.c === c && state.editing.addr.r === r
                 return (
                   <td
                     key={c}
-                    colSpan={model.colSpan}
                     role="gridcell"
                     aria-selected={focused}
-                    className={[model.className, ranged ? "range" : "", focused ? "focus" : ""]
+                    className={[
+                      columns[c]?.className,
+                      model.className,
+                      ranged ? "range" : "",
+                      focused ? "focus" : "",
+                      editing ? "editing" : "",
+                    ]
                       .filter(Boolean)
                       .join(" ")}
                     onClick={(event) => dispatch({ type: "select", addr, shift: event.shiftKey })}

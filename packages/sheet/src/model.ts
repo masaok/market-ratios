@@ -1,10 +1,5 @@
-export const COL_COUNT = 6
-export const COL = { company: 1, ticker: 2, price: 3, change: 4 } as const
-export const TITLE_ROW = 0
-export const HEADER_ROW = 3
-export const FIRST_DATA_ROW = 4
-
-const COLS = ["A", "B", "C", "D", "E", "F"] as const
+export const COL_COUNT = 4
+export const COL = { company: 0, ticker: 1, price: 2, change: 3 } as const
 
 export type Addr = { c: number; r: number }
 
@@ -40,23 +35,18 @@ export function formatPercent(percent: number): string {
   return rounded < 0 ? `-${digits}%` : `${digits}%`
 }
 
-export function addrName(addr: Addr): string {
-  return `${COLS[addr.c] ?? "?"}${addr.r + 1}`
-}
-
 export function rowCount(state: GridState): number {
-  return Math.max(32, FIRST_DATA_ROW + state.tickers.length + 2)
+  return state.tickers.length
 }
 
 export function symbolForRow(state: GridState, row: number): string {
-  if (row < FIRST_DATA_ROW) return ""
-  return state.tickers[row - FIRST_DATA_ROW] ?? ""
+  return state.tickers[row] ?? ""
 }
 
 export function initialGrid(tickers: readonly string[]): GridState {
   const list = tickers.map((ticker) => ticker.trim().toUpperCase()).filter((ticker) => ticker.length > 0)
   list.push("")
-  const focus = { c: COL.ticker, r: FIRST_DATA_ROW }
+  const focus = { c: COL.ticker, r: 0 }
   return { tickers: list, anchor: focus, focus, editing: null }
 }
 
@@ -74,7 +64,7 @@ function commitEditing(state: GridState): GridState {
   const { addr, draft } = state.editing
   const idle = { ...state, editing: null }
   if (addr.c !== COL.ticker) return idle
-  const index = addr.r - FIRST_DATA_ROW
+  const index = addr.r
   if (index < 0 || index >= state.tickers.length) return idle
   const next = draft.trim().toUpperCase()
   const tickers = state.tickers.slice()
@@ -104,7 +94,7 @@ export function reduceGrid(state: GridState, action: GridAction): GridState {
     }
     case "begin-edit": {
       if (state.focus.c !== COL.ticker) return state
-      const index = state.focus.r - FIRST_DATA_ROW
+      const index = state.focus.r
       if (index < 0 || index >= state.tickers.length) return state
       const current = state.tickers[index] ?? ""
       const draft = action.seed != null ? action.seed.toUpperCase() : current
@@ -113,7 +103,7 @@ export function reduceGrid(state: GridState, action: GridAction): GridState {
     case "add-row": {
       const committed = commitEditing(state)
       const tickers = withTrailingBlank(committed.tickers)
-      const addr = { c: COL.ticker, r: FIRST_DATA_ROW + tickers.length - 1 }
+      const addr = { c: COL.ticker, r: tickers.length - 1 }
       return { tickers, anchor: addr, focus: addr, editing: { addr, draft: "" } }
     }
     case "select": {

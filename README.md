@@ -1,10 +1,10 @@
 # Market Ratios
 
-A spreadsheet in the browser that fills itself with stock prices.
+A table in the browser that fills itself with stock prices.
 
 The sheet starts in demo mode, so you can see it move before you create an account with a data vendor. Paste a free [Finnhub](https://finnhub.io/register) key when you want that vendor's prices. The browser sends the key to Finnhub. This app does not.
 
-![The Monitor sheet running on simulated prices](docs/monitor.png)
+![The stock monitor table running on simulated prices](docs/monitor.png)
 
 ## Set up the demo
 
@@ -60,7 +60,7 @@ Create a free key at [Finnhub](https://finnhub.io/register). In the sheet, choos
 
 Prices refresh every 5 minutes. The first request runs as soon as the key is saved. An invalid key stays on the key panel, and the sheet keeps the simulated prices. This browser stores the ticker list and the key.
 
-`WMM` is in the default list because it is on the reference screenshot. Finnhub may not resolve it as a US ticker. That row shows `#N/A` when the provider has no name and no price.
+`WMM` is in the default list because it is on the reference screenshot. Finnhub may not resolve it as a US ticker. That row shows "Unknown symbol" and "No price" when the provider has no name and no price.
 
 ## Deploy the demo
 

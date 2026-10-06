@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Market Ratios",
-  description: "A spreadsheet of live stock prices.",
+  description: "A live table of stock prices.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
