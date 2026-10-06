@@ -54,4 +54,20 @@ describe("stock monitor", () => {
     })
     expect(screen.getByTestId("price-AAPL").getAttribute("data-price")).toBe("180.32")
   })
+
+  it("uses the supplied tickers and leaves browser storage alone", async () => {
+    const seen: string[][] = []
+    const clock = manualClock()
+    const provider = createSimulatedProvider({ intervalMs: 60_000, random: () => 0.5, clock })
+    render(
+      <StockMonitor
+        provider={provider}
+        tickers={["ZZZZ"]}
+        onTickersChange={(next) => seen.push(next)}
+      />,
+    )
+    expect(screen.getByText("ZZZZ")).toBeTruthy()
+    expect(seen.at(-1)).toEqual(["ZZZZ"])
+    expect(localStorage.getItem("market-ratios.sheet.v1")).toBeNull()
+  })
 })

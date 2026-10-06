@@ -34,7 +34,8 @@ import { loadSheet, saveSheet } from "./storage"
 // One book for the page, so a tick notifies the price cell and not the grid.
 const book = new QuoteBook()
 
-function initialMonitorState(): GridState {
+function initialMonitorState(tickers: readonly string[] | undefined): GridState {
+  if (tickers) return initialGrid(tickers)
   if (typeof window === "undefined") return initialGrid(DEFAULT_TICKERS)
   const saved = loadSheet()
   if (saved && saved.tickers.length > 0) return initialGrid(saved.tickers)
@@ -53,8 +54,16 @@ const HEADERS: Record<number, string> = {
   [COL.change]: "Change %",
 }
 
-export function StockMonitor({ provider: providerOverride }: { provider?: QuoteProvider }) {
-  const [state, setState] = useState<GridState>(initialMonitorState)
+export function StockMonitor({
+  provider: providerOverride,
+  tickers,
+  onTickersChange,
+}: {
+  provider?: QuoteProvider
+  tickers?: readonly string[]
+  onTickersChange?: (tickers: string[]) => void
+}) {
+  const [state, setState] = useState<GridState>(() => initialMonitorState(tickers))
   const [apiKey, setApiKey] = useState<string | null>(initialApiKey)
   const [status, setStatus] = useState<ProviderStatus>({ kind: "simulated" })
   const [keyOpen, setKeyOpen] = useState(false)
@@ -62,9 +71,13 @@ export function StockMonitor({ provider: providerOverride }: { provider?: QuoteP
   const [keyError, setKeyError] = useState<string | null>(null)
 
   useEffect(() => {
-    const tickers = state.tickers.filter((ticker) => ticker.length > 0)
-    saveSheet({ tickers, apiKey })
-  }, [state.tickers, apiKey])
+    const next = state.tickers.filter((ticker) => ticker.length > 0)
+    if (onTickersChange) {
+      onTickersChange(next)
+      return
+    }
+    saveSheet({ tickers: next, apiKey })
+  }, [state.tickers, apiKey, onTickersChange])
 
   const provider = useMemo(() => {
     if (providerOverride) return providerOverride
