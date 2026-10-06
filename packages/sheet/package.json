@@ -1,0 +1,27 @@
+{
+  "name": "@market-ratios/sheet",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": ["src"],
+  "dependencies": {
+    "@market-ratios/quotes": "file:../quotes"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  }
+}

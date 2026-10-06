@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Market Ratios
 
-## Getting Started
+A spreadsheet in the browser that fills itself with stock prices.
 
-First, run the development server:
+The sheet starts in demo mode, so you can see it move before you create an account with a data vendor. Paste a free [Finnhub](https://finnhub.io/register) key when you want that vendor's prices. The browser sends the key to Finnhub. This app does not.
+
+![The Monitor sheet running on simulated prices](docs/monitor.png)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/masaok/market-ratios&project-name=market-ratios&root-directory=apps/demo)
+
+## Run the demo
+
+Install pnpm 12, then from this directory:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The Monitor sheet lists 22 tickers and the prices change on a timer. The banner says the data is simulated.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To use Finnhub, choose **Add a Finnhub key**, paste the key, and choose **Use key**. Prices refresh every 5 minutes. An invalid key stays on the key panel and the sheet keeps the simulated prices. The ticker list and the key are stored in this browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`WMM` is in the default list because it is on the reference screenshot. Finnhub may not resolve it as a US ticker. That row shows `#N/A` when the provider has no name and no price.
 
-## Learn More
+## Packages
 
-To learn more about Next.js, take a look at the following resources:
+`@market-ratios/quotes` is the provider interface, the simulated provider, and the Finnhub adapter. It does not depend on React.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`@market-ratios/sheet` is the grid and the stock monitor. Give it a page and it renders the sheet.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Both packages are version 0.1.0 and are not published yet.
 
-## Deploy on Vercel
+The comparison of free feeds is in [docs/providers.md](docs/providers.md). The licence position is in [docs/licensing.md](docs/licensing.md). To add a provider, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Checks
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+`scripts/finnhub-spike.mjs` records a live Finnhub session when `FINNHUB_API_KEY` is set. Without that variable it prints whether the US cash session is open and exits.

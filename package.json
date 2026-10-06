@@ -1,27 +1,22 @@
 {
   "name": "market-ratios",
-  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.3.8",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "dev": "pnpm --filter @market-ratios/demo dev",
+    "build": "pnpm --filter @market-ratios/demo build",
+    "lint": "eslint packages apps/demo/src",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "spike": "node scripts/finnhub-spike.mjs"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "jsdom": "^26.1.0",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@12.4.1"
 }

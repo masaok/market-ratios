@@ -1,0 +1,237 @@
+.workbook {
+  min-height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #222222;
+  font-family: Calibri, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fff4cc;
+  border-bottom: 1px solid #e6d48a;
+}
+
+.banner button,
+.key-panel button,
+.status-bar button {
+  border: 1px solid #217346;
+  background: #217346;
+  color: #ffffff;
+  border-radius: 2px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.key-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f7f7f7;
+  border-bottom: 1px solid #d0d0d0;
+}
+
+.key-panel input {
+  font: inherit;
+  padding: 4px 6px;
+  min-width: 220px;
+}
+
+.key-error {
+  color: #9c1b1b;
+  margin: 0;
+}
+
+.formula-row {
+  display: flex;
+  align-items: stretch;
+  height: 28px;
+  border-bottom: 1px solid #d0d0d0;
+  background: #ffffff;
+}
+
+.name-box {
+  width: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #d0d0d0;
+  font-weight: 600;
+}
+
+.formula {
+  flex: 1;
+  border: 0;
+  padding: 0 8px;
+  font: inherit;
+}
+
+.grid-scroll {
+  flex: 1;
+  overflow: auto;
+  outline: none;
+  background: #ffffff;
+}
+
+.grid-scroll table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 760px;
+}
+
+.gutter,
+.col-a,
+.col-f {
+  width: 46px;
+}
+
+.col-company {
+  width: 280px;
+}
+
+.col-ticker,
+.col-price,
+.col-change {
+  width: 140px;
+}
+
+.corner,
+.colhead,
+.rowhead {
+  background: #f3f3f3;
+  color: #666666;
+  font-weight: 500;
+  border: 1px solid #d4d4d4;
+  text-align: center;
+  position: sticky;
+}
+
+.colhead {
+  top: 0;
+  z-index: 2;
+  height: 20px;
+}
+
+.rowhead {
+  left: 0;
+  z-index: 1;
+  width: 36px;
+  min-width: 36px;
+}
+
+.corner {
+  left: 0;
+  top: 0;
+  z-index: 3;
+}
+
+td {
+  border: 1px solid #e0e0e0;
+  height: 22px;
+  padding: 0 6px;
+  white-space: nowrap;
+  background: #ffffff;
+  vertical-align: middle;
+}
+
+td.range {
+  background: #e2efda;
+}
+
+td.focus {
+  box-shadow: inset 0 0 0 2px #217346;
+}
+
+td.title {
+  background: #e2efd9;
+  color: #375623;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  height: 36px;
+  overflow: hidden;
+}
+
+td.header {
+  background: #d9ead3;
+  font-weight: 700;
+  text-align: center;
+}
+
+td.ticker,
+td.price,
+td.change {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+td.company {
+  text-align: left;
+}
+
+td.dimmed {
+  color: #888888;
+}
+
+.cell-input {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-transform: uppercase;
+  background: transparent;
+  outline: none;
+}
+
+.flash {
+  animation: tickflash 180ms ease-out;
+}
+
+@keyframes tickflash {
+  from {
+    background-color: #fff2cc;
+  }
+}
+
+.sheet-tabs {
+  display: flex;
+  align-items: flex-end;
+  height: 28px;
+  background: #f3f3f3;
+  border-top: 1px solid #d0d0d0;
+  padding-left: 56px;
+}
+
+.sheet-tab {
+  background: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-bottom: 0;
+  padding: 4px 14px;
+  font-weight: 600;
+}
+
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  height: 26px;
+  padding: 0 10px;
+  background: #f3f3f3;
+  border-top: 1px solid #d0d0d0;
+  color: #444444;
+}
+
+.status-bar button.quiet {
+  background: #ffffff;
+  color: #217346;
+}

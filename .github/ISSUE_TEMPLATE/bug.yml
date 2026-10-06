@@ -1,0 +1,15 @@
+name: Bug
+description: Something in quotes, the sheet, or the demo app broke.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
